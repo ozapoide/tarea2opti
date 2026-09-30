@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Método gráfico – Programación lineal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f7f9;--panel:#fff;--fg:#1a1d23;--mut:#667085;--bd:#d9dde3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14161a;--panel:#1e2127;--fg:#e8eaed;--mut:#9aa3af;--bd:#333a44}}
+:root[data-theme="dark"]{--bg:#14161a;--panel:#1e2127;--fg:#e8eaed;--mut:#9aa3af;--bd:#333a44}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1200px;margin:0 auto;padding:16px;display:grid;grid-template-columns:minmax(320px,400px) 1fr;gap:16px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+h1{font-size:20px;margin:0 0 4px;grid-column:1/-1}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 10px}
+.row{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+input,select{background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:5px 6px;font:inherit}
+input[type=number]{width:70px}
+select{width:58px}
+.sw{display:inline-block;width:28px;height:0;border-top:3px solid;vertical-align:middle;margin-right:8px}
+.leg div{margin:6px 0}
+.hatch{display:inline-block;width:28px;height:14px;vertical-align:middle;margin-right:8px;border:1px solid #64748b;background:repeating-linear-gradient(45deg,#64748b55 0 2px,transparent 2px 6px)}
+.dot{display:inline-block;width:10px;height:10px;border:2px solid var(--fg);border-radius:50%;margin:0 12px 0 9px;vertical-align:middle}
+.msg{color:#dc2626;font-weight:600}
+.wrap{overflow-x:auto}
+canvas{width:100%;max-width:760px;height:auto;background:var(--panel);border:1px solid var(--bd);border-radius:10px}
+.spin{display:inline-flex;align-items:stretch}
+.spin input{border-top-right-radius:0;border-bottom-right-radius:0;-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield}
+.spin input::-webkit-outer-spin-button,.spin input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.ar{display:flex;flex-direction:column}
+.ar button{flex:1;width:26px;padding:0;border:1px solid var(--bd);border-left:0;background:var(--bg);color:var(--fg);font-size:10px;line-height:1;cursor:pointer}
+.ar button:first-child{border-top-right-radius:6px}.ar button:last-child{border-bottom-right-radius:6px;border-top:0}
+.ar button:hover{background:var(--bd)}
+.btn{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:inherit;font-weight:600;cursor:pointer}
+.btn:hover{filter:brightness(1.12)}
+#report{overflow-x:auto}#report h2{margin:0 0 8px}#report h3{margin:16px 0 6px;font-size:15px}#report p{margin:6px 0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--bd);padding:6px 8px;text-align:left;white-space:nowrap}
+th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+tr.opt{background:rgba(234,179,8,.16)}
+.mut{color:var(--mut);font-size:13px}
+</style></head><body>
+<main>
+<h1>Método gráfico – Programación lineal</h1>
+<section>
+  <div class="card"><h2>Función objetivo</h2>
+    <div class="row"><select id="mode" style="width:auto"><option value="max">Maximizar</option><option value="min">Minimizar</option></select> Z = <input type="number" step="any" id="fa" value="3"> x + <input type="number" step="any" id="fb" value="2"> y</div>
+    <div class="row">Curva de nivel: Z = <span class="spin"><input type="number" step="any" id="fz" value="12"><span class="ar"><button type="button" data-d="1" aria-label="Aumentar 1">▲</button><button type="button" data-d="-1" aria-label="Disminuir 1">▼</button></span></span></div>
+    <div class="row"><button type="button" id="solve" class="btn">Resolver</button></div>
+    <div class="mut">Usa las flechas del recuadro (±1) o escribe el valor. «Resolver» marca el vértice óptimo con una estrella (★) y ajusta Z a su valor.</div>
+  </div>
+  <div class="card"><h2>Restricciones (hasta 4)</h2><div id="cons"></div>
+    <div class="mut">x ≥ 0 e y ≥ 0 se consideran siempre. Una fila con ambos coeficientes en 0 se ignora.</div>
+  </div>
+  <div class="card leg"><h2>Leyenda</h2><div id="legend"></div></div>
+</section>
+<section class="wrap"><canvas id="cv" width="760" height="680"></canvas>
+<div id="report" class="card" style="margin-top:12px;max-width:760px"></div></section>
+</main>
+<script>
+const COL=['#2563eb','#059669','#d97706','#7c3aed'], FO='#dc2626', EPS=1e-7;
+const $=id=>document.getElementById(id), REL={ge:'≥',le:'≤',eq:'='};
+const DEF=[[1,1,'le',6],[2,1,'le',8],[1,2,'ge',2],[0,0,'le',0]];
+const cons=$('cons');
+DEF.forEach((d,i)=>{const r=document.createElement('div');r.className='row';
+ r.innerHTML=`<span class="sw" style="border-color:${COL[i]}"></span><input type="number" step="any" value="${d[0]}"> x + <input type="number" step="any" value="${d[1]}"> y <select><option value="le">≤</option><option value="ge">≥</option><option value="eq">=</option></select><span class="spin"><input type="number" step="any" value="${d[3]}"><span class="ar"><button type="button" data-d="1" aria-label="Aumentar 1">▲</button><button type="button" data-d="-1" aria-label="Disminuir 1">▼</button></span></span>`;
+ r.querySelector('select').value=d[2];cons.appendChild(r);});
+document.addEventListener('input',draw);
+document.addEventListener('change',draw);
+document.addEventListener('keyup',draw);
+document.addEventListener('click',e=>{const b=e.target.closest('.ar button');if(!b)return;
+ const i=b.closest('.spin').querySelector('input');i.value=fmt((parseFloat(i.value)||0)+ +b.dataset.d);draw();});
+
+const v=e=>parseFloat(e.value)||0;
+function fmt(n){let s=+n.toFixed(3);if(Object.is(s,-0))s=0;return String(s)}
+function term(k,s,first){if(!k)return'';const m=Math.abs(k),b=(m===1?'':fmt(m))+s;return first?(k<0?'−':'')+b:(k<0?' − ':' + ')+b}
+function eqn(a,b,rel,c){let t=term(a,'x',true);t+=term(b,'y',!t);return (t||'0')+' '+rel+' '+fmt(c)}
+function inter(l,m){const d=l.a*m.b-m.a*l.b;if(Math.abs(d)<1e-9)return null;return{x:(l.c*m.b-m.c*l.b)/d,y:(l.a*m.c-m.a*l.c)/d}}
+function feas(p,L){return L.every(l=>{const s=l.a*p.x+l.b*p.y;return l.t==='ge'?s>=l.c-EPS*(1+Math.abs(l.c)):l.t==='le'?s<=l.c+EPS*(1+Math.abs(l.c)):Math.abs(s-l.c)<=EPS*(1+Math.abs(l.c))})}
+function verts(L,check=true){const out=[];
+ for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const p=inter(L[i],L[j]);
+  if(!p||!isFinite(p.x)||!isFinite(p.y))continue;
+  if(check&&!feas(p,L))continue;
+  if(!check&&(p.x<-EPS||p.y<-EPS))continue;
+  if(!out.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<1e-6))out.push(p);}
+ return out}
+
+function draw(){
+ const fa=v($('fa')),fb=v($('fb')),fz=v($('fz'));
+ const rows=[...cons.children],C=[];
+ rows.forEach((r,i)=>{const [a,b,c]=[...r.querySelectorAll('input')].map(v);
+  if(a||b)C.push({a,b,c,t:r.querySelector('select').value,col:COL[i],name:'R'+(i+1)})});
+ const axes=[{a:1,b:0,c:0,t:'ge',name:'x ≥ 0'},{a:0,b:1,c:0,t:'ge',name:'y ≥ 0'}];
+ const base=[...axes,...C];
+ const mode=$('mode').value,sig=[fa,fb,mode,C.map(l=>[l.a,l.b,l.c,l.t].join()).join(';')].join('|');
+ if(sol&&sol.sig!==sig)sol=null;
+ const isOpt=p=>sol&&sol.pts.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<1e-6);
+ // ventana
+ let fv=verts(base), pool=fv.length?fv:verts(base,false), mx=Math.max(0,...pool.map(p=>Math.max(p.x,p.y)));
+ let M=Math.max(10,mx*1.4);const st0=Math.pow(10,Math.floor(Math.log10(M/5))),f=M/5/st0;
+ const stp=(f<=1?1:f<=2?2:f<=5?5:10)*st0;M=Math.ceil(M/stp)*stp;
+ // dominio con cajas de recorte
+ const L=[...base,{a:1,b:0,c:M,t:'le',bound:1},{a:0,b:1,c:M,t:'le',bound:1}];
+ let poly=verts(L);
+ const real=p=>base.filter(l=>Math.abs(l.a*p.x+l.b*p.y-l.c)<1e-6*(1+Math.abs(l.c))).length>=2;
+ const V=poly.filter(real), unb=poly.some(p=>!real(p));
+ {const n=V.length,cx=V.reduce((s,p)=>s+p.x,0)/n,cy=V.reduce((s,p)=>s+p.y,0)/n;V.sort((p,q)=>Math.atan2(p.y-cy,p.x-cx)-Math.atan2(q.y-cy,q.x-cx));}
+ if(poly.length){const cx=poly.reduce((s,p)=>s+p.x,0)/poly.length,cy=poly.reduce((s,p)=>s+p.y,0)/poly.length;
+  poly.sort((p,q)=>Math.atan2(p.y-cy,p.x-cx)-Math.atan2(q.y-cy,q.x-cx));}
+ // canvas
+ const cv=$('cv'),g=cv.getContext('2d'),W=cv.width,H=cv.height,P=55,s=(W-2*P)/M;
+ const st=getComputedStyle(document.body),fg=st.color,mut=getComputedStyle(document.documentElement).getPropertyValue('--mut').trim(),bd=getComputedStyle(document.documentElement).getPropertyValue('--bd').trim();
+ const X=x=>P+x*s,Y=y=>H-P-y*s;
+ g.clearRect(0,0,W,H);g.font='12px system-ui,sans-serif';
+ g.lineWidth=1;g.strokeStyle=bd;g.fillStyle=mut;g.textAlign='center';
+ for(let t=0;t<=M+1e-9;t+=stp){g.beginPath();g.moveTo(X(t),Y(0));g.lineTo(X(t),Y(M));g.moveTo(X(0),Y(t));g.lineTo(X(M),Y(t));g.stroke();
+  g.fillText(fmt(t),X(t),Y(0)+16);g.textAlign='right';g.fillText(fmt(t),X(0)-8,Y(t)+4);g.textAlign='center';}
+ g.strokeStyle=fg;g.lineWidth=1.5;g.strokeRect(P,P,W-2*P,H-2*P);
+ g.fillStyle=fg;g.font='bold 14px system-ui,sans-serif';g.fillText('x',W-P+2,H-P+34);g.fillText('y',P-30,P-8);
+ g.save();g.beginPath();g.rect(P,P,W-2*P,H-2*P);g.clip();
+ // achurado
+ if(poly.length>=3){const h=document.createElement('canvas');h.width=h.height=8;const hc=h.getContext('2d');
+  hc.strokeStyle='rgba(100,116,139,.7)';hc.lineWidth=1.5;hc.beginPath();hc.moveTo(0,8);hc.lineTo(8,0);hc.moveTo(-2,2);hc.lineTo(2,-2);hc.moveTo(6,10);hc.lineTo(10,6);hc.stroke();
+  g.beginPath();poly.forEach((p,i)=>i?g.lineTo(X(p.x),Y(p.y)):g.moveTo(X(p.x),Y(p.y)));g.closePath();
+  g.fillStyle=g.createPattern(h,'repeat');g.fill();g.strokeStyle='rgba(100,116,139,.9)';g.lineWidth=1;g.stroke();}
+ const line=(a,b,c)=>{g.beginPath();if(b){g.moveTo(X(-1),Y((c+a)/b));g.lineTo(X(M+1),Y((c-a*(M+1))/b));}else{g.moveTo(X(c/a),Y(-1));g.lineTo(X(c/a),Y(M+1));}g.stroke()};
+ g.setLineDash([]);g.lineWidth=2.5;C.forEach(l=>{g.strokeStyle=l.col;line(l.a,l.b,l.c)});
+ if(fa||fb){g.strokeStyle=FO;g.lineWidth=2.5;g.setLineDash([9,6]);line(fa,fb,fz);g.setLineDash([]);}
+ g.restore();
+ // vértices
+ g.textAlign='left';g.font='12px system-ui,sans-serif';
+ V.forEach((p,i)=>{if(isOpt(p)){star(g,X(p.x),Y(p.y),13,6);g.fillStyle='#facc15';}else{g.beginPath();g.arc(X(p.x),Y(p.y),6,0,7);g.fillStyle='rgba(255,255,255,.85)';}g.fill();g.strokeStyle=fg;g.lineWidth=2;g.stroke();
+  const t=`V${i+1} (${fmt(p.x)}, ${fmt(p.y)})`,w=g.measureText(t).width,right=X(p.x)+w+14>W-4;
+  g.fillStyle=fg;g.textAlign=right?'right':'left';g.fillText(t,X(p.x)+(right?-10:10),Math.max(P+12,Y(p.y)-10));});
+ // leyenda
+ let h=`<div><span class="sw" style="border-color:${FO};border-top-style:dashed"></span><b>F.O. (${mode==='max'?'máx':'mín'}):</b> Z = ${eqn(fa,fb,'',0).replace(/ ? 0$/,'').trim()||'0'}<br><span class="mut" style="margin-left:36px">Curva de nivel: ${eqn(fa,fb,'=',fz)}</span></div>`;
+ C.forEach((l,i)=>h+=`<div><span class="sw" style="border-color:${l.col}"></span><b>${l.name}:</b> ${eqn(l.a,l.b,REL[l.t],l.c)}</div>`);
+ h+=`<div><b style="margin-left:36px">x ≥ 0, y ≥ 0</b></div>`;
+ if(!poly.length||!V.length&&!unb)h+=`<div class="msg">Dominio factible vacío (sin solución).</div>`;
+ else{h+=`<div><span class="hatch"></span><b>Dominio factible</b>${unb?' (no acotado; se muestra recortado)':''}</div>`;
+  V.sort((p,q)=>Math.atan2(p.y-V.reduce((s,r)=>s+r.y,0)/V.length,p.x-V.reduce((s,r)=>s+r.x,0)/V.length)-Math.atan2(q.y-V.reduce((s,r)=>s+r.y,0)/V.length,q.x-V.reduce((s,r)=>s+r.x,0)/V.length));
+  V.forEach((p,i)=>h+=`<div>${isOpt(p)?'<span class="dot" style="border:0;color:#eab308;font-size:18px;line-height:10px;width:auto">★</span>':'<span class="dot"></span>'}V${i+1} = (${fmt(p.x)}, ${fmt(p.y)}) &nbsp;→ Z = ${fmt(fa*p.x+fb*p.y)}</div>`);}
+ $('legend').innerHTML=h;
+ last={V,poly,real,base,fa,fb,mode,sig,unb};report(last);
+}
+let sol=null,last=null;
+const star=(g,x,y,R,r)=>{g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?r:R;g.lineTo(x+q*Math.cos(a),y+q*Math.sin(a));}g.closePath();};
+const isAct=(p,l)=>Math.abs(l.a*p.x+l.b*p.y-l.c)<1e-6*(1+Math.abs(l.c));
+// Multiplicadores: L = Z − Σ μᵢ(aᵢx + bᵢy − cᵢ)  ⇒  ∇Z = Σ μᵢ·(aᵢ,bᵢ)
+function lagrange(p,L,fa,fb,mode){
+ const idx=[];L.forEach((l,i)=>{if(isAct(p,l))idx.push(i)});
+ let pick=null;
+ for(let x=0;x<idx.length&&!(pick&&pick.ok);x++)for(let y=x+1;y<idx.length&&!(pick&&pick.ok);y++){
+  const l=L[idx[x]],m=L[idx[y]],d=l.a*m.b-m.a*l.b;if(Math.abs(d)<1e-9)continue;
+  const u=(fa*m.b-m.a*fb)/d,w=(l.a*fb-fa*l.b)/d;
+  const okv=[[l,u],[m,w]].every(([q,mu])=>q.t==='eq'||(((q.t==='ge')===(mode==='min'))?mu>=-1e-9:mu<=1e-9));
+  if(!pick||okv)pick={i:idx[x],j:idx[y],u,w,ok:okv};}
+ const mu=L.map(()=>0);if(pick){mu[pick.i]=pick.u;mu[pick.j]=pick.w;}
+ return{mu,deg:idx.length>2};
+}
+function solve(){
+ const s=last;if(!s||!s.V.length)return;
+ const z=p=>s.fa*p.x+s.fb*p.y,k=s.mode==='max'?1:-1,best=Math.max(...s.V.map(p=>k*z(p))),tol=1e-7*(1+Math.abs(best));
+ const opts=s.V.filter(p=>k*z(p)>=best-tol);
+ if(s.poly.some(p=>!s.real(p)&&k*z(p)>best+tol)){sol={sig:s.sig,unb:true,pts:[]};}
+ else{const zo=z(opts[0]);sol={sig:s.sig,pts:opts,zopt:zo,lag:lagrange(opts[0],s.base,s.fa,s.fb,s.mode)};$('fz').value=+zo.toFixed(6);}
+ draw();
+}
+function report(s){
+ const box=$('report'),nm=s.mode==='max'?'Maximización':'Minimización';
+ let t=term(s.fa,'x',true);t+=term(s.fb,'y',!t);
+ let h=`<h2>Informe</h2><p><b>Problema de ${nm}:</b> Z = ${t||'0'}</p>`;
+ if(!s.poly.length||(!s.V.length&&!s.unb)){box.innerHTML=h+'<p class="msg">El dominio factible es vacío: el problema no tiene solución.</p>';return;}
+ const z=p=>s.fa*p.x+s.fb*p.y,isO=p=>sol&&sol.pts.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<1e-6);
+ h+=`<h3>Vértices factibles</h3><table><tr><th>Vértice</th><th>Coordenadas</th><th>Restricciones activas</th><th>Z</th></tr>`;
+ s.V.forEach((p,i)=>{h+=`<tr class="${isO(p)?'opt':''}"><td>V${i+1}${isO(p)?' ★':''}</td><td>(${fmt(p.x)}, ${fmt(p.y)})</td><td>${s.base.filter(l=>isAct(p,l)).map(l=>l.name).join(', ')}</td><td>${fmt(z(p))}</td></tr>`});
+ h+='</table>';
+ if(s.unb)h+='<p class="mut">El dominio es no acotado.</p>';
+ if(!sol)h+='<p class="mut">Presiona «Resolver» para identificar el vértice óptimo y calcular sus multiplicadores de Lagrange.</p>';
+ else if(sol.unb)h+='<h3>Resultado</h3><p class="msg">El problema no tiene óptimo finito: la función objetivo mejora indefinidamente dentro del dominio (no acotado).</p>';
+ else{
+  const o=sol.pts[0],n=s.V.findIndex(p=>Math.hypot(p.x-o.x,p.y-o.y)<1e-6)+1;
+  h+=`<h3>★ Vértice óptimo</h3><p>V${n} = (${fmt(o.x)}, ${fmt(o.y)}) &nbsp;·&nbsp; <b>Z* = ${fmt(sol.zopt)}</b> (${nm.toLowerCase()})</p>`;
+  if(sol.pts.length>1)h+=`<p class="mut">Hay óptimos alternativos (${sol.pts.map(p=>'V'+(s.V.findIndex(q=>q===p)+1)).join(', ')}): toda la arista que los une es óptima. Los multiplicadores corresponden a V${n}.</p>`;
+  h+=`<p class="mut">Lagrangiano: L = Z − Σ μᵢ(aᵢx + bᵢy − cᵢ), con ∇Z = (${fmt(s.fa)}, ${fmt(s.fb)}) = Σ μᵢ·(aᵢ, bᵢ). Las restricciones inactivas tienen μ = 0. Cada μᵢ indica cuánto varía Z* por cada unidad que aumenta cᵢ.</p>`;
+  h+='<table><tr><th>Restricción</th><th>Ecuación</th><th>Estado</th><th>Multiplicador μ</th></tr>';
+  s.base.forEach((l,i)=>{h+=`<tr><td>${l.name}</td><td>${eqn(l.a,l.b,REL[l.t],l.c)}</td><td>${isAct(o,l)?'activa':'inactiva'}</td><td>${fmt(sol.lag.mu[i])}</td></tr>`});
+  h+='</table>';
+  if(sol.lag.deg)h+='<p class="mut">Vértice degenerado (más de dos restricciones activas): los multiplicadores no son únicos; se muestra un conjunto válido.</p>';
+ }
+ box.innerHTML=h;
+}
+$('solve').addEventListener('click',solve);
+
+draw();
+</script></body></html>
